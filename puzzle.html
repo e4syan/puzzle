@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ugly Duckling Puzzle</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      font-family: 'Comic Sans MS', cursive;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: url('background_puzzle.png') no-repeat center center/cover;
+      opacity: 0.5;
+      z-index: -1;
+    }
+
+    h1 {
+      color: #fff;
+      text-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    }
+
+    .game-board {
+      display: grid;
+      gap: 10px;
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+
+    .card {
+        width: 100px;
+        height: 100px;
+        background-color: #ddd;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        border-radius: 10px;
+        background-size: cover;         /* Change this line */
+        background-position: center;
+        background-repeat: no-repeat;
+        transition: transform 0.3s ease-in-out;
+    }
+
+
+    .card:hover {
+      transform: scale(1.1);
+    }
+
+    .back-button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #ffcc00;
+      color: #000;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+
+    .back-button:hover {
+      background-color: #e6b800;
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: yellow;
+      top: 0;
+      animation: fall 1.5s linear infinite;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+
+    .shake {
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(5px, 5px); }
+      50% { transform: translate(-5px, -5px); }
+      75% { transform: translate(5px, -5px); }
+    }
+  </style>
+</head>
+<body>
+  <h1>! Find the Ugly Duckling !</h1>
+  <div class="game-board" id="gameBoard"></div>
+  <button class="back-button" onclick="goBack()">Back</button>
+
+  <!-- Sounds -->
+  <audio id="flipSound" src="flip.mp3"></audio>
+  <audio id="winSound" src="win.m4a"></audio>
+
+  <script>
+    const levels = [
+      { name: 'easy', yellow: 14, white: 2, columns: 4 },
+      { name: 'medium', yellow: 18, white: 2, columns: 5 },
+      { name: 'hard', yellow: 28, white: 2, columns: 6 }
+    ];
+
+    let currentLevel = 0;
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    const board = document.getElementById('gameBoard');
+    const flipSound = document.getElementById('flipSound');
+    const winSound = document.getElementById('winSound');
+
+    function goBack() {
+      window.location.href = 'index.html';
+    }
+
+    function initializeGame() {
+      const level = levels[currentLevel];
+      board.innerHTML = '';
+      board.style.gridTemplateColumns = `repeat(${level.columns}, 100px)`;
+      let cards = [];
+
+      for (let i = 0; i < level.yellow; i++) cards.push('yellow.png');
+      for (let i = 0; i < level.white; i++) cards.push('white.png');
+
+      cards = shuffle(cards);
+      cards.forEach(img => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.image = img;
+        card.style.backgroundImage = '';
+        card.addEventListener('click', flipCard);
+        board.appendChild(card);
+      });
+
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+    }
+
+    function flipCard() {
+      if (lockBoard || this.classList.contains('flipped')) return;
+
+      flipSound.currentTime = 0;
+      flipSound.play();
+
+      this.style.backgroundImage = `url(${this.dataset.image})`;
+      this.classList.add('flipped');
+
+      if (!firstCard) {
+        firstCard = this;
+        return;
+      }
+
+      secondCard = this;
+      lockBoard = true;
+      checkMatch();
+    }
+
+    function checkMatch() {
+      if (firstCard.dataset.image === 'white.png' && secondCard.dataset.image === 'white.png') {
+        setTimeout(() => {
+          winSound.play();
+          triggerConfetti();
+          board.classList.add('shake');
+          setTimeout(() => board.classList.remove('shake'), 500);
+
+          setTimeout(() => {
+            currentLevel++;
+            if (currentLevel < levels.length) {
+              alert(`🎉 Level completed! Moving to ${levels[currentLevel].name.toUpperCase()}...`);
+              initializeGame();
+            } else {
+              alert('🏆 You’ve completed all levels! Game will restart.');
+              currentLevel = 0;
+              initializeGame();
+            }
+          }, 1500);
+        }, 500);
+      } else {
+        setTimeout(() => {
+          firstCard.style.backgroundImage = '';
+          secondCard.style.backgroundImage = '';
+          firstCard.classList.remove('flipped');
+          secondCard.classList.remove('flipped');
+          resetBoard();
+        }, 1000);
+      }
+    }
+
+    function resetBoard() {
+      [firstCard, secondCard, lockBoard] = [null, null, false];
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function triggerConfetti() {
+      for (let i = 0; i < 30; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.backgroundColor = ['#ff0', '#f0f', '#0ff'][i % 3];
+        confetti.style.animationDuration = `${Math.random() + 1}s`;
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 1500);
+      }
+    }
+
+    // Start the game
+    initializeGame();
+  </script>
+</body>
+</html>
